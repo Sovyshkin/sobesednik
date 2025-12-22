@@ -19,8 +19,8 @@ export default defineNuxtConfig({
   // Настройки runtimeConfig для локалной и публичной конфигурации. Разкомментировать после развёртки на сервере
   runtimeConfig: {
   public: {
-    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:4000/api',
-    fileBase: process.env.NUXT_PUBLIC_FILE_BASE_URL || 'http://localhost:4000'
+    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'https://sobesednik-na-chas.ru/api',
+    fileBase: process.env.NUXT_PUBLIC_FILE_BASE_URL || 'https://sobesednik-na-chas.ru'
   }
 },
   // Плагины
