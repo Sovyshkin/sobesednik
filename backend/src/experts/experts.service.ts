@@ -343,8 +343,11 @@ private async moveFilesToExpertFolder(
       safeUpdateData.status = this.getValidStatus(safeUpdateData.status);
     }
 
-    // Хэшируем пароль, если он изменяется
+    // Проверка совпадения пароля и подтверждения
     if (safeUpdateData.password) {
+      if (!updateData.confirmPassword || safeUpdateData.password !== updateData.confirmPassword) {
+        throw new HttpException('Пароль и подтверждение не совпадают', 400);
+      }
       safeUpdateData.password = await bcrypt.hash(safeUpdateData.password, 10);
     }
 

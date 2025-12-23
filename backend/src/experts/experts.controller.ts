@@ -38,7 +38,7 @@ async confirmReset(@Body() body: any) {
   @Patch(':id')
   async update(
     @Param('id') id: string, 
-    @Body() updateExpertDto: any
+    @Body() updateExpertDto: import('./dto/update-expert.dto').UpdateExpertDto
   ) {
     console.log('📝 Обновление эксперта:', id, updateExpertDto);
     

@@ -34,6 +34,36 @@
             </button>
           </div>
         </label>
+        <label v-if="isEditMode" class="password-field">
+          Новый пароль
+          <div class="password-input-wrapper">
+            <input 
+              v-model="form.password" 
+              :type="showPassword ? 'text' : 'password'" 
+              placeholder="Оставьте пустым, если не меняете" 
+              class="password-input"
+            />
+            <button 
+              type="button" 
+              class="toggle-password"
+              @click="togglePasswordVisibility"
+              tabindex="-1"
+            >
+              <span v-if="showPassword" class="icon">👁️</span>
+              <span v-else class="icon">👁️‍🗨️</span>
+            </button>
+          </div>
+        </label>
+        <label v-if="isEditMode && form.password" class="password-field">
+          Подтверждение нового пароля
+          <input 
+            v-model="form.confirmPassword" 
+            type="password" 
+            placeholder="Повторите новый пароль" 
+            class="password-input"
+            required
+          />
+        </label>
 
         <label>
           Имя и Фамилия *
@@ -237,9 +267,10 @@ const showPassword = ref(false) // Добавлено состояние вид�
 const form = ref({
   login: '',
   password: '',
+  confirmPassword: '',
   name: '',
   age: null,
-  gender: '', // Добавлено поле пола
+  gender: '',
   availability: 'Свободен',
   about: '',
   telegram: '',
@@ -472,8 +503,8 @@ const handleSubmit = async () => {
       // Добавляем все поля формы
       Object.keys(form.value).forEach(key => {
         const value = form.value[key]
-        // Исключаем пароль при редактировании
-        if (key === 'password' && isEditMode.value) {
+        // Исключаем пароль и подтверждение, если не меняется
+        if (isEditMode.value && (key === 'password' || key === 'confirmPassword') && !form.value.password) {
           return
         }
         if (value !== null && value !== undefined && value !== '') {
