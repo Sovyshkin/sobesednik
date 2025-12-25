@@ -63,30 +63,34 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    hostname: "https://sobesednik-na-chas.ru",
-    gzip: true,
-    // Автоматически добавит все маршруты из pages/
-    routes: async () => {
-      try {
-        // Получаем список всех активных экспертов для sitemap
-        const apiBase = process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:4000/api'
-        const response = await fetch(`${apiBase}/experts`)
-        const experts = await response.json()
-        
-        // Создаем маршруты для каждого эксперта
-        return experts.map((expert) => ({
-          url: `/experts/${expert.id}`,
-          changefreq: 'weekly',
-          priority: 0.8,
-          lastmod: expert.updatedAt || expert.createdAt
-        }))
-      } catch (error) {
-        console.error('Ошибка генерации sitemap для экспертов:', error)
-        return []
-      }
-    }
-  },
+  siteUrl: "https://sobesednik-na-chas.ru",
+  gzip: true,
 
+  exclude: [
+    '/admin/**',
+    '/admin-login',
+    '/expert-login',
+    '/expert-reset',
+    '/become-expert'
+  ],
+
+  async urls() {
+    try {
+      const apiBase = process.env.NUXT_PUBLIC_API_BASE || 'https://sobesednik-na-chas.ru/api'
+      const experts = await fetch(`${apiBase}/experts`).then(res => res.json())
+
+      return experts.map((expert: any) => ({
+        loc: `/experts/${expert.id}`,
+        changefreq: 'weekly',
+        priority: 0.8,
+        lastmod: expert.updatedAt || expert.createdAt
+      }))
+    } catch (error) {
+      console.error('Ошибка генерации sitemap для экспертов:', error)
+      return []
+    }
+  }
+},
   // Стили по умолчанию
   css: ["~/assets/main.css"],
 
