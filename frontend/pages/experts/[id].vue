@@ -94,7 +94,7 @@
       <div class="gallery-grid">
         <div v-for="(url, idx) in galleryUrls" :key="idx" class="gallery-item">
           <img v-if="isImage(url)" :src="getImageUrl(url)" :alt="`Фото ${idx + 1}`" @click="openLightbox(idx)" />
-          <video v-else controls :src="getImageUrl(url)" @click="openLightbox(idx)">
+          <video v-else controls :src="getImageUrl(url)" @click="handleVideoClick($event, idx)">
             Ваш браузер не поддерживает видео.
           </video>
         </div>
@@ -109,7 +109,7 @@
 
         <div class="lightbox-media">
           <img v-if="isImage(currentLightboxUrl)" :src="getImageUrl(currentLightboxUrl)" alt="Просмотр галереи" />
-          <video v-else controls autoplay :src="getImageUrl(currentLightboxUrl)">
+          <video v-else controls :src="getImageUrl(currentLightboxUrl)">
             Ваш браузер не поддерживает видео.
           </video>
         </div>
@@ -349,6 +349,14 @@ const currentLightboxUrl = computed(() => {
   if (!galleryUrls.value.length) return ''
   return galleryUrls.value[currentLightboxIndex.value]
 })
+
+// Обработка клика по видео в галерее
+const handleVideoClick = (event, index) => {
+  // Паузим текущее видео
+  event.target.pause()
+  // Открываем лайтбокс
+  openLightbox(index)
+}
 
 // Остановка всех видео
 const stopAllVideos = () => {
