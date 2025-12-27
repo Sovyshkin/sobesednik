@@ -94,29 +94,30 @@
       <div class="gallery-grid">
         <div v-for="(url, idx) in galleryUrls" :key="idx" class="gallery-item">
           <img v-if="isImage(url)" :src="getImageUrl(url)" :alt="`Фото ${idx + 1}`" @click="openLightbox(idx)" />
-          <div v-else class="video-wrapper" @click="handleVideoClick($event, idx)">
-            <video controls :src="getImageUrl(url)">
-              Ваш браузер не поддерживает видео.
-            </video>
-          </div>
+          <video v-else controls :src="getImageUrl(url)" @click="openVideoModal(url)">
+            Ваш браузер не поддерживает видео.
+          </video>
         </div>
       </div>
     </div>
 
-    <!-- Лайтбокс для галереи -->
-    <div v-if="lightboxVisible" class="lightbox" @click="closeLightbox" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
+    <!-- Лайтбокс для изображений -->
+    <div v-if="lightboxVisible" class="lightbox" @click="closeLightbox">
       <div class="lightbox-content" @click.stop>
         <button class="lightbox-close" @click="closeLightbox">×</button>
         <button class="lightbox-nav lightbox-prev" @click="prevImage">‹</button>
-
-        <div class="lightbox-media">
-          <img v-if="isImage(currentLightboxUrl)" :src="getImageUrl(currentLightboxUrl)" alt="Просмотр галереи" />
-          <video v-else controls preload="none" :src="getImageUrl(currentLightboxUrl)">
-            Ваш браузер не поддерживает видео.
-          </video>
-        </div>
-
+        <img :src="getImageUrl(currentLightboxUrl)" alt="Просмотр галереи" />
         <button class="lightbox-nav lightbox-next" @click="nextImage">›</button>
+      </div>
+    </div>
+
+    <!-- Простое модальное окно для видео -->
+    <div v-if="videoModalVisible" class="video-modal" @click="closeVideoModal">
+      <div class="video-modal-content" @click.stop>
+        <button class="video-modal-close" @click="closeVideoModal">×</button>
+        <video controls :src="getImageUrl(currentVideoUrl)" class="modal-video">
+          Ваш браузер не поддерживает видео.
+        </video>
       </div>
     </div>
 
@@ -203,7 +204,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from '#app'
 
 const route = useRoute()
@@ -290,6 +291,10 @@ useHead({
 // Лайтбокс состояния
 const lightboxVisible = ref(false)
 const currentLightboxIndex = ref(0)
+
+// Видео модал состояния  
+const videoModalVisible = ref(false)
+const currentVideoUrl = ref('')
 const complaintModalVisible = ref(false) // Состояние модального окна жалобы
 
 // Показать модальное окно жалобы
@@ -352,98 +357,60 @@ const currentLightboxUrl = computed(() => {
   return galleryUrls.value[currentLightboxIndex.value]
 })
 
-// Обработка клика по видео в галерее
-const handleVideoClick = (event, index) => {
-  const video = event.target.closest('video')
-  
-  // Если клик был по видео элементу
-  if (video && event.target === video) {
-    // Проверяем, был ли клик в области элементов управления (нижняя часть видео)
-    const rect = video.getBoundingClientRect()
-    const clickY = event.clientY - rect.top
-    const videoHeight = rect.height
-    
-    // Если клик в нижней трети видео (область элементов управления), не открываем лайтбокс
-    if (clickY > videoHeight * 0.7) {
-      return
-    }
+// Открыть модальное окно видео
+const openVideoModal = (videoUrl) => {
+  currentVideoUrl.value = videoUrl
+  videoModalVisible.value = true
+}
+
+// Закрыть модальное окно видео
+const closeVideoModal = () => {
+  videoModalVisible.value = false
+  currentVideoUrl.value = ''
+  // Останавливаем все видео при закрытии
+  setTimeout(() => {
+    const videos = document.querySelectorAll('video')
+    videos.forEach(v => v.pause())
+  }, 100)
+}
+
+
+
+const openLightbox = (index) => {
+  // Открываем лайтбокс только для изображений
+  if (isImage(galleryUrls.value[index])) {
+    currentLightboxIndex.value = index
+    lightboxVisible.value = true
   }
-  
-  // Останавливаем все видео и открываем лайтбокс
-  stopAllVideos()
-  openLightbox(index)
-}
-
-// Остановка всех видео
-const stopAllVideos = () => {
-  const videos = document.querySelectorAll('video')
-  videos.forEach(v => {
-    v.pause()
-    v.currentTime = 0
-  })
-
-// Также останавливаем все аудио (если есть)
-  const audios = document.querySelectorAll('audio')
-  audios.forEach(a => {
-    a.pause()
-    a.currentTime = 0
-  })
-}
-
-const openLightbox = async (index) => {
-  currentLightboxIndex.value = index
-  lightboxVisible.value = true
-  
-  // Ждем следующего тика чтобы видео отрендерилось
-  await nextTick()
-  stopAllVideos()
 }
 
 const closeLightbox = () => {
-  stopAllVideos()
   lightboxVisible.value = false
 }
 
 const nextImage = () => {
-  stopAllVideos()
   if (!galleryUrls.value.length) return
-  currentLightboxIndex.value = (currentLightboxIndex.value + 1) % galleryUrls.value.length
+  
+  let nextIndex = currentLightboxIndex.value
+  do {
+    nextIndex = (nextIndex + 1) % galleryUrls.value.length
+  } while (!isImage(galleryUrls.value[nextIndex]) && nextIndex !== currentLightboxIndex.value)
+  
+  currentLightboxIndex.value = nextIndex
 }
 
 const prevImage = () => {
-  stopAllVideos()
   if (!galleryUrls.value.length) return
-  currentLightboxIndex.value =
-    currentLightboxIndex.value === 0
-      ? galleryUrls.value.length - 1
-      : currentLightboxIndex.value - 1
+  
+  let prevIndex = currentLightboxIndex.value
+  do {
+    prevIndex = prevIndex === 0 ? galleryUrls.value.length - 1 : prevIndex - 1
+  } while (!isImage(galleryUrls.value[prevIndex]) && prevIndex !== currentLightboxIndex.value)
+  
+  currentLightboxIndex.value = prevIndex
 }
 
-// Для отслеживания свайпа
-const touchStartX = ref(0)
-const touchEndX = ref(0)
 
-const handleTouchStart = (e) => {
-  touchStartX.value = e.changedTouches[0].screenX
-}
-
-const handleTouchEnd = (e) => {
-  touchEndX.value = e.changedTouches[0].screenX
-  handleSwipe()
-}
-
-const handleSwipe = () => {
-  const swipeDistance = touchEndX.value - touchStartX.value
-  const minSwipe = 50 // минимальное расстояние свайпа
-
-  if (Math.abs(swipeDistance) < minSwipe) return
-
-  if (swipeDistance < 0) {
-    nextImage()
-  } else {
-    prevImage()
-  }
-}
 
 // Функция для получения правильного URL изображения
 const getImageUrl = (url) => {
@@ -860,22 +827,6 @@ onMounted(fetchExpert)
   border-radius: 8px;
 }
 
-.video-wrapper {
-  width: 100%;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.video-wrapper video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 /* Стили для лайтбокса */
 .lightbox {
   position: fixed;
@@ -897,6 +848,63 @@ onMounted(fetchExpert)
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.lightbox-content img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Стили для видео модала */
+.video-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.video-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90%;
+}
+
+.modal-video {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  border-radius: 8px;
+}
+
+.video-modal-close {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 36px;
+  cursor: pointer;
+  z-index: 1002;
+  padding: 5px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .lightbox-close {
@@ -1066,8 +1074,7 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video,
-  .video-wrapper {
+  .gallery-item video {
     height: 120px;
   }
 
@@ -1146,8 +1153,7 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video,
-  .video-wrapper {
+  .gallery-item video {
     height: 140px;
   }
 
@@ -1186,8 +1192,7 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video,
-  .video-wrapper {
+  .gallery-item video {
     height: 160px;
   }
 
@@ -1228,8 +1233,7 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video,
-  .video-wrapper {
+  .gallery-item video {
     height: 180px;
   }
 }
@@ -1393,8 +1397,7 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video,
-  .video-wrapper {
+  .gallery-item video {
     height: 200px;
   }
 }
