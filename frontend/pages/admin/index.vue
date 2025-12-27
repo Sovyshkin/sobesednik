@@ -101,7 +101,7 @@
             </div>
             <div class="info-row">
               <span class="info-label">Срок публикации:</span>
-              <span class="info-value">{{ expert.publicationDays || 30 }} дней</span>
+              <span class="info-value">{{ getDaysLeft(expert.expiresAt) }} дней</span>
             </div>
             <div class="info-row">
               <span class="info-label">Сумма оплаты:</span>
@@ -135,12 +135,32 @@
             </div>
           </div>
 
+          <div v-if="extendExpertId === expert.id" class="modal-extend-publication">
+            <div class="modal-publication">
+              <h3>Продлить публикацию</h3>
+              <span class="info-value">{{ expert.telegram || 'не указан' }}</span>
+              <span class="info-value">{{ expert.login }}</span>
+              <label>
+                Количество дней
+                <input type="number" min="1" v-model.number="extendDays" />
+              </label>
+
+              <div class="modal-publication-actions">
+                <button
+                :disabled="extendLoading"
+                 @click="confirmExtendPublication"
+                >Подтвердить</button>
+                <button @click="closeExtendModal">Отменить</button>
+              </div>
+            </div>
+          </div>
+
           <div class="admin-actions">
             <button v-if="expert.status === 'pending'" @click="approveExpert(expert.id)" class="action-btn approve-btn"
               title="Одобрить анкету">
               ✅ Одобрить
             </button>
-            <button @click="extendPublicationt(expert.id)" class="action-btn extend-publicationt-btn"
+            <button @click="openExtendModal(expert.id)" class="action-btn extend-publicationt-btn"
               title="Продлить публикацию">
               Продлить
             </button>
@@ -176,6 +196,7 @@
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -191,15 +212,21 @@ const loading = ref(false)
 const statusFilter = ref('pending')
 const searchQuery = ref('')
 
+// Модальное окно продления публикации
+const extendDays = ref(1)
+const extendExpertId = ref(null)
+const extendLoading = ref(false)
+
+
 // Загрузка экспертов
 const loadExperts = async () => {
   loading.value = true
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     // Пробуем использовать специальный endpoint для админа
     console.log('🔄 Попытка загрузить данные через /experts/admin/all...');
     let response;
-    
+
     try {
       response = await $fetch(`${config.public.apiBase}/experts/admin/all`)
       console.log('✅ Данные загружены через admin endpoint');
@@ -289,7 +316,7 @@ const activeCount = computed(() => {
 // Действия администратора
 const approveExpert = async (expertId) => {
   if (!confirm('Вы уверены, что хотите одобрить эту анкету?')) return
-const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     console.log('✅ Одобрение эксперта:', expertId)
 
@@ -312,18 +339,11 @@ const config = useRuntimeConfig()
   }
 }
 
-const extendPublicationt = async (expertId) => {
-  try {
-    alert('Здесь нужно реализовать логику продления публикации', expertId)
-  } catch (error) {
-    console.error('❌ Ошибка продления публикации:', error)
-  }
-}
 
 const rejectExpert = async (expertId) => {
   const reason = prompt('Укажите причину отклонения:')
   if (!reason) return
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     console.log('❌ Отклонение эксперта:', expertId, 'Причина:', reason)
 
@@ -363,7 +383,7 @@ const viewDetails = (expertId) => {
 // Блокировка анкеты
 const blockExpert = async (expertId) => {
   if (!confirm('Вы уверены, что хотите заблокировать эту анкету?')) return
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     const response = await $fetch(`${config.public.apiBase}/experts/admin/${expertId}/block`, {
       method: 'POST'
@@ -386,7 +406,7 @@ const blockExpert = async (expertId) => {
 // Верификация эксперта "Подтверждённый собеседник"
 const verifyExpert = async (expertId) => {
   if (!confirm('Вы уверены, что хотите верифицировать эту анкету?')) return
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     const response = await $fetch(`${config.public.apiBase}/experts/admin/${expertId}/verify`, {
       method: 'POST'
@@ -416,7 +436,7 @@ const verifyExpert = async (expertId) => {
 // Снятие верификации
 const unverifyExpert = async (expertId) => {
   if (!confirm('Вы уверены, что хотите снять верификацию с этого собеседника?')) return
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     const response = await $fetch(`${config.public.apiBase}/experts/admin/${expertId}/unverify`, {
       method: 'POST'
@@ -440,7 +460,7 @@ const unverifyExpert = async (expertId) => {
 // Удаление анкеты
 const deleteExpert = async (expertId) => {
   if (!confirm('Вы уверены, что хотите УДАЛИТЬ анкету? Это действие необратимо!')) return
-  const config = useRuntimeConfig() 
+  const config = useRuntimeConfig()
   try {
     await $fetch(`${config.public.apiBase}/experts/${expertId}`, {
       method: 'DELETE'
@@ -490,6 +510,22 @@ const formatDate = (dateString) => {
     return 'Ошибка формата даты'
   }
 }
+
+// Остаток дней публикации (источник истины — expiresAt)
+const getDaysLeft = (expiresAt) => {
+  if (!expiresAt) return '—'
+
+  const now = Date.now()
+  const exp = new Date(expiresAt).getTime()
+
+  if (isNaN(exp)) return '—'
+
+  return Math.max(
+    Math.ceil((exp - now) / 86400000),
+    0
+  )
+}
+
 // Добавьте также функцию для отображения относительного времени
 const formatRelativeTime = (dateString) => {
   if (!dateString) return ''
@@ -523,6 +559,51 @@ const handleLogout = () => {
   localStorage.removeItem('adminLoginTime')
   navigateTo('/admin-login')
 }
+
+// Продление публикации анкеты собеседника вручную админом
+//Модальное окно продления публикации
+const openExtendModal = (expertId) => {
+  extendExpertId.value = expertId
+  extendDays.value = 1
+}
+const closeExtendModal = () => {
+  extendExpertId.value = null
+  extendDays.value = 1
+}
+//Отправка запроса на продление вручную
+const confirmExtendPublication = async () => {
+  if (!extendExpertId.value) return
+
+  const config = useRuntimeConfig()
+  extendLoading.value = true
+
+  try {
+    const response = await $fetch(
+      `${config.public.apiBase}/experts/admin/${extendExpertId.value}/extend`,
+      {
+        method: 'POST',
+        body: { days: extendDays.value }
+      }
+    )
+
+    const index = experts.value.findIndex(
+      e => e.id === extendExpertId.value
+    )
+
+    if (index !== -1) {
+      experts.value[index].expiresAt = response.expiresAt
+    }
+
+    closeExtendModal()
+    alert('✅ Публикация продлена')
+  } catch (error) {
+    console.error('❌ Ошибка продления:', error)
+    alert('Ошибка при продлении публикации')
+  } finally {
+    extendLoading.value = false
+  }
+}
+
 
 // Инициализация
 onMounted(() => {
@@ -921,9 +1002,11 @@ onMounted(() => {
   background: #f39c12;
   color: white;
 }
+
 .unverify-btn:hover {
   background: #d68910;
 }
+
 .spinner {
   width: 40px;
   height: 40px;
@@ -964,4 +1047,126 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
 }
+
+/* Стили модального окна продления публикации админом вручную */
+/* Затемняющий фон */
+.modal-extend-publication {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Контейнер модального окна */
+.modal-publication {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px 26px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+/* Заголовок */
+.modal-publication h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Информация о пользователе */
+.modal-publication .info-value {
+  display: block;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+/* Поле ввода */
+.modal-publication label {
+  display: block;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.modal-publication input[type="number"] {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.modal-publication input[type="number"]:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+/* Кнопки */
+.modal-publication-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.modal-publication-actions button {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, transform 0.1s;
+}
+
+/* Подтвердить */
+.modal-publication-actions button:first-child {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.modal-publication-actions button:first-child:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+/* Отменить */
+.modal-publication-actions button:last-child {
+  background: #f3f4f6;
+  color: #333;
+}
+
+.modal-publication-actions button:last-child:hover {
+  background: #e5e7eb;
+}
+
+/* Заблокированная кнопка */
+.modal-publication-actions button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Анимация появления */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 </style>

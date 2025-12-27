@@ -6,9 +6,6 @@ import { CreateExpertDto } from './dto/create-expert.dto';
 import { TelegramService } from '../telegram/telegram.service';
 import { HttpException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { join } from 'path';
-
-const BASE_UPLOADS_PATH = join(__dirname, '..', '..', 'uploads');
 
 @Injectable()
 export class ExpertsService {
@@ -171,13 +168,13 @@ private async moveFilesToExpertFolder(
   const path = await import('path');
 
   // Создаем папку для эксперта
-  const expertFolder = join(BASE_UPLOADS_PATH, 'experts', expertId);
+  const expertFolder = path.join(process.cwd(), 'uploads', 'experts', expertId);
   await fs.mkdir(expertFolder, { recursive: true });
   console.log(`📁 Создана папка для эксперта: ${expertFolder}`);
 
   // Перемещаем главное фото
   if (mainPhoto) {
-    const oldPath = join(BASE_UPLOADS_PATH, mainPhoto.filename);
+    const oldPath = path.join(process.cwd(), 'uploads', mainPhoto.filename);
     const newPath = path.join(expertFolder, mainPhoto.filename);
     try {
       await fs.rename(oldPath, newPath);
@@ -190,7 +187,7 @@ private async moveFilesToExpertFolder(
   // Перемещаем файлы галереи
   if (galleryFiles && galleryFiles.length > 0) {
     for (const file of galleryFiles) {
-      const oldPath = join(BASE_UPLOADS_PATH, file.filename);
+      const oldPath = path.join(process.cwd(), 'uploads', file.filename);
       const newPath = path.join(expertFolder, file.filename);
       try {
         await fs.rename(oldPath, newPath);
@@ -265,7 +262,7 @@ private async moveFilesToExpertFolder(
     const path = await import('path');
     
     // Новая логика: удаляем всю папку эксперта
-    const expertFolder = join(BASE_UPLOADS_PATH, 'experts', expert.id);
+    const expertFolder = path.join(process.cwd(), 'uploads', 'experts', expert.id);
     
     try {
       // Проверяем, существует ли папка
@@ -292,7 +289,7 @@ private async moveFilesToExpertFolder(
     
     // Добавляем главное фото
     if (expert.mainPhotoUrl) {
-     const filePath = join(BASE_UPLOADS_PATH, path.basename(expert.mainPhotoUrl));
+      const filePath = path.join(process.cwd(), 'uploads', path.basename(expert.mainPhotoUrl));
       filesToDelete.push(filePath);
     }
     
@@ -302,7 +299,7 @@ private async moveFilesToExpertFolder(
         const galleryUrls = JSON.parse(expert.galleryUrls);
         if (Array.isArray(galleryUrls)) {
           galleryUrls.forEach(url => {
-            const filePath = join(BASE_UPLOADS_PATH, path.basename(url));
+            const filePath = path.join(process.cwd(), 'uploads', path.basename(url));
             filesToDelete.push(filePath);
           });
         }
@@ -327,28 +324,10 @@ private async moveFilesToExpertFolder(
 
   async update(id: string, updateData: any): Promise<Expert> {
     const expert = await this.findOne(id);
-    const { id: _, ...safeUpdateData } = updateData;
-
-    // Проверяем уникальность логина, если он изменяется
-    if (safeUpdateData.login && safeUpdateData.login !== expert.login) {
-      const existingExpert = await this.expertsRepository.findOne({ 
-        where: { login: safeUpdateData.login } 
-      });
-      if (existingExpert && existingExpert.id !== expert.id) {
-        throw new HttpException('Логин уже занят другим пользователем', 400);
-      }
-    }
+    const { id: _, login: __, ...safeUpdateData } = updateData;
 
     if (safeUpdateData.status) {
       safeUpdateData.status = this.getValidStatus(safeUpdateData.status);
-    }
-
-    // Проверка совпадения пароля и подтверждения
-    if (safeUpdateData.password) {
-      if (!updateData.confirmPassword || safeUpdateData.password !== updateData.confirmPassword) {
-        throw new HttpException('Пароль и подтверждение не совпадают', 400);
-      }
-      safeUpdateData.password = await bcrypt.hash(safeUpdateData.password, 10);
     }
 
     Object.assign(expert, safeUpdateData);
@@ -368,24 +347,8 @@ private async moveFilesToExpertFolder(
 
     const expert = await this.findOne(id);
     
-    // Обновляем данные (исключаем только id)
-    const { id: _, ...safeUpdateData } = updateData;
-    
-    // Проверяем уникальность логина, если он изменяется
-    if (safeUpdateData.login && safeUpdateData.login !== expert.login) {
-      const existingExpert = await this.expertsRepository.findOne({ 
-        where: { login: safeUpdateData.login } 
-      });
-      if (existingExpert && existingExpert.id !== expert.id) {
-        throw new HttpException('Логин уже занят другим пользователем', 400);
-      }
-    }
-
-    // Хэшируем пароль, если он изменяется
-    if (safeUpdateData.password) {
-      safeUpdateData.password = await bcrypt.hash(safeUpdateData.password, 10);
-    }
-    
+    // Обновляем данные (исключаем id и login)
+    const { id: _, login: __, ...safeUpdateData } = updateData;
     Object.assign(expert, safeUpdateData);
 
     // Обрабатываем файлы если они переданы
@@ -700,6 +663,40 @@ async resetPassword(login: string, code: string, password: string) {
   await this.expertsRepository.save(expert);
 
   return { message: 'Пароль успешно изменён' };
+}
+
+// Продление публикации анкеты эксперта вручную админом
+async extendPublication(expertId: string, days: number): Promise<Expert> {
+  const expert = await this.findOne(expertId);
+
+  const now = new Date();
+
+  let baseDate: Date;
+
+  if (expert.expiresAt && expert.expiresAt > now) {
+    // анкета ещё активна — продлеваем от expiresAt
+    baseDate = new Date(expert.expiresAt);
+  } else {
+    // анкета истекла или ещё не публиковалась
+    baseDate = now;
+  }
+
+  baseDate.setDate(baseDate.getDate() + days);
+  expert.expiresAt = baseDate;
+
+  // если была истекшая — возвращаем в active
+  if (expert.status === 'expired') {
+    expert.status = 'active';
+  }
+
+  const saved = await this.expertsRepository.save(expert);
+  await this.saveData();
+
+  console.log(
+    `⏳ Продление анкеты ${expertId} на ${days} дней. Новый expiresAt: ${baseDate.toISOString()}`
+  );
+
+  return saved;
 }
 
 }

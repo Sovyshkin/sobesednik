@@ -38,7 +38,7 @@ async confirmReset(@Body() body: any) {
   @Patch(':id')
   async update(
     @Param('id') id: string, 
-    @Body() updateExpertDto: import('./dto/update-expert.dto').UpdateExpertDto
+    @Body() updateExpertDto: any
   ) {
     console.log('📝 Обновление эксперта:', id, updateExpertDto);
     
@@ -375,7 +375,7 @@ async confirmReset(@Body() body: any) {
   }
 
   // Endpoint для админа - возвращает всех экспертов (включая на модерации)
-  @Get('admin/all')
+@Get('admin/all')
 async findAllForAdmin() {
   console.log('🔍 Запрос к /experts/admin/all');
   const experts = await this.expertsService.findAll();
@@ -414,6 +414,8 @@ async findAllForAdmin() {
       createdAt: expert.createdAt,
       updatedAt: expert.updatedAt,
       alwaysAvailable: expert.alwaysAvailable,
+      publishedAt: expert.publishedAt,
+      expiresAt: expert.expiresAt,      
       reviews: reviews, // ← ДОБАВЛЯЕМ ОТЗЫВЫ
       reviewsCount: reviews.length // ← И количество отзывов для удобства
     };
@@ -731,6 +733,24 @@ async unverifyExpert(@Param('id') id: string) {
   return {
     id: expert.id,
     expertIsVerified: expert.expertIsVerified
+  };
+}
+
+// Продление публикации анкеты эксперта вручную админом
+@Post('admin/:id/extend')
+async extendPublication(
+  @Param('id') id: string,
+  @Body() body: { days: number }
+) {
+  if (!body.days || body.days <= 0) {
+    throw new BadRequestException('Количество дней должно быть больше 0');
+  }
+
+  const expert = await this.expertsService.extendPublication(id, body.days);
+
+  return {
+    id: expert.id,
+    expiresAt: expert.expiresAt,
   };
 }
 
