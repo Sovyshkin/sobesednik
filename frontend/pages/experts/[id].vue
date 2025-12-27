@@ -111,7 +111,7 @@
 
         <div class="lightbox-media">
           <img v-if="isImage(currentLightboxUrl)" :src="getImageUrl(currentLightboxUrl)" alt="Просмотр галереи" />
-          <video v-else controls :src="getImageUrl(currentLightboxUrl)">
+          <video v-else controls preload="none" :src="getImageUrl(currentLightboxUrl)">
             Ваш браузер не поддерживает видео.
           </video>
         </div>
@@ -203,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from '#app'
 
 const route = useRoute()
@@ -390,9 +390,13 @@ const stopAllVideos = () => {
   })
 }
 
-const openLightbox = (index) => {
+const openLightbox = async (index) => {
   currentLightboxIndex.value = index
   lightboxVisible.value = true
+  
+  // Ждем следующего тика чтобы видео отрендерилось
+  await nextTick()
+  stopAllVideos()
 }
 
 const closeLightbox = () => {
