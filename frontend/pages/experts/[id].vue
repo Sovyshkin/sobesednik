@@ -95,7 +95,7 @@
         <div v-for="(url, idx) in galleryUrls" :key="idx" class="gallery-item">
           <img v-if="isImage(url)" :src="getImageUrl(url)" :alt="`Фото ${idx + 1}`" @click="openLightbox(idx)" />
           <div v-else class="video-wrapper" @click="handleVideoClick($event, idx)">
-            <video controls :src="getImageUrl(url)" @click.stop>
+            <video controls :src="getImageUrl(url)">
               Ваш браузер не поддерживает видео.
             </video>
           </div>
@@ -354,6 +354,21 @@ const currentLightboxUrl = computed(() => {
 
 // Обработка клика по видео в галерее
 const handleVideoClick = (event, index) => {
+  const video = event.target.closest('video')
+  
+  // Если клик был по видео элементу
+  if (video && event.target === video) {
+    // Проверяем, был ли клик в области элементов управления (нижняя часть видео)
+    const rect = video.getBoundingClientRect()
+    const clickY = event.clientY - rect.top
+    const videoHeight = rect.height
+    
+    // Если клик в нижней трети видео (область элементов управления), не открываем лайтбокс
+    if (clickY > videoHeight * 0.7) {
+      return
+    }
+  }
+  
   // Останавливаем все видео и открываем лайтбокс
   stopAllVideos()
   openLightbox(index)
