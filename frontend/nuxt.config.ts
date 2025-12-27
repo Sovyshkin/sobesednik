@@ -71,7 +71,6 @@ export default defineNuxtConfig({
     '/admin-login',
     '/expert-login',
     '/expert-reset',
-    '/become-expert'
   ],
 
   async urls() {
@@ -141,3 +140,4 @@ export default defineNuxtConfig({
     },
   },
 });
+
