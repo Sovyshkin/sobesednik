@@ -94,9 +94,11 @@
       <div class="gallery-grid">
         <div v-for="(url, idx) in galleryUrls" :key="idx" class="gallery-item">
           <img v-if="isImage(url)" :src="getImageUrl(url)" :alt="`Фото ${idx + 1}`" @click="openLightbox(idx)" />
-          <video v-else controls :src="getImageUrl(url)" @click="handleVideoClick($event, idx)">
-            Ваш браузер не поддерживает видео.
-          </video>
+          <div v-else class="video-wrapper" @click="handleVideoClick($event, idx)">
+            <video controls :src="getImageUrl(url)" @click.stop>
+              Ваш браузер не поддерживает видео.
+            </video>
+          </div>
         </div>
       </div>
     </div>
@@ -352,9 +354,8 @@ const currentLightboxUrl = computed(() => {
 
 // Обработка клика по видео в галерее
 const handleVideoClick = (event, index) => {
-  // Паузим текущее видео
-  event.target.pause()
-  // Открываем лайтбокс
+  // Останавливаем все видео и открываем лайтбокс
+  stopAllVideos()
   openLightbox(index)
 }
 
@@ -375,7 +376,6 @@ const stopAllVideos = () => {
 }
 
 const openLightbox = (index) => {
-  stopAllVideos()
   currentLightboxIndex.value = index
   lightboxVisible.value = true
 }
@@ -841,6 +841,22 @@ onMounted(fetchExpert)
   border-radius: 8px;
 }
 
+.video-wrapper {
+  width: 100%;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 /* Стили для лайтбокса */
 .lightbox {
   position: fixed;
@@ -1031,7 +1047,8 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video {
+  .gallery-item video,
+  .video-wrapper {
     height: 120px;
   }
 
@@ -1110,7 +1127,8 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video {
+  .gallery-item video,
+  .video-wrapper {
     height: 140px;
   }
 
@@ -1149,7 +1167,8 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video {
+  .gallery-item video,
+  .video-wrapper {
     height: 160px;
   }
 
@@ -1190,7 +1209,8 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video {
+  .gallery-item video,
+  .video-wrapper {
     height: 180px;
   }
 }
@@ -1354,7 +1374,8 @@ onMounted(fetchExpert)
   }
 
   .gallery-item img,
-  .gallery-item video {
+  .gallery-item video,
+  .video-wrapper {
     height: 200px;
   }
 }
