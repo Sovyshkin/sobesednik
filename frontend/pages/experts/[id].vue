@@ -858,16 +858,20 @@ onMounted(fetchExpert)
 
 .lightbox-content {
   position: relative;
-  max-width: 90%;
-  max-height: 90%;
+  width: auto;
+  height: auto;
+  max-width: 95vw;
+  max-height: 95vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .lightbox-content img {
-  max-width: 100%;
-  max-height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 95vw;
+  max-height: 95vh;
   object-fit: contain;
 }
 
@@ -1765,4 +1769,5 @@ onMounted(fetchExpert)
     font-size: 1.1rem;
   }
 }
+
 </style>
