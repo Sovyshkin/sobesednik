@@ -101,7 +101,11 @@
             </div>
             <div class="info-row">
               <span class="info-label">Срок публикации:</span>
-              <span class="info-value">{{ getDaysLeft(expert.expiresAt) }} дней</span>
+              <span class="info-value">{{ expert.status === 'expired' ? '0 дней (истекла)' : getDaysLeft(expert.expiresAt) + ' дней' }}</span>
+            </div>
+            <div v-if="expert.status === 'expired' && expert.expiredAt" class="info-row">
+              <span class="info-label">Попала в "Истекшие":</span>
+              <span class="info-value">{{ formatDate(expert.expiredAt) }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Сумма оплаты:</span>
@@ -820,6 +824,12 @@ onMounted(() => {
   background: #fef7f7;
 }
 
+.expert-card.expired {
+  border-color: #ff9800;
+  background: #fff8f0;
+  border-width: 3px;
+}
+
 .expert-header {
   display: flex;
   justify-content: space-between;
@@ -857,6 +867,11 @@ onMounted(() => {
 .status-rejected {
   background: #f8d7da;
   color: #721c24;
+}
+
+.status-expired {
+  background: #ffe0b2;
+  color: #e65100;
 }
 
 .expert-info {

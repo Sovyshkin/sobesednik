@@ -165,6 +165,7 @@ const filtersOpen = ref(false)  // состояние открытия филь�
 const filteredExperts = computed(() => {
   return store.experts.filter(expert => {
     if (expert.status === 'pending') return false
+    if (expert.status === 'expired') return false // Исключаем истекшие анкеты из поиска
 
     const query = searchQuery.value.toLowerCase()
     const fullName = `${expert.name || ''} ${expert.surname || ''}`.toLowerCase()

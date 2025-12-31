@@ -458,7 +458,7 @@ private async moveFilesToExpertFolder(
     return savedExpert;
   }
 
-  // Проверка истекших анкет
+  // Проверка истекших анкет - переводит активные в expired
   async checkAndRemoveExpiredExperts(): Promise<void> {
     const now = new Date();
     const expiredExperts = await this.expertsRepository
@@ -468,15 +468,47 @@ private async moveFilesToExpertFolder(
       .getMany();
 
     for (const expert of expiredExperts) {
+      expert.status = 'expired';
+      expert.expiredAt = now; // Записываем дату попадания в "Истекшие"
+      await this.expertsRepository.save(expert);
+      console.log(`⏰ Анкета ${expert.id} (${expert.name}) переведена в статус "Истекшие"`);
+    }
+  }
+
+  // Удаление expired анкет через 14 дней после истечения
+  async deleteOldExpiredExperts(): Promise<void> {
+    const now = new Date();
+    const fourteenDaysAgo = new Date(now);
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    const oldExpiredExperts = await this.expertsRepository
+      .createQueryBuilder('expert')
+      .where('expert.status = :status', { status: 'expired' })
+      .andWhere('expert.expiredAt < :fourteenDaysAgo', { fourteenDaysAgo })
+      .getMany();
+
+    for (const expert of oldExpiredExperts) {
+      // Удаляем файлы эксперта
+      await this.deleteExpertFiles(expert);
+      // Удаляем запись из БД
       await this.expertsRepository.remove(expert);
+      console.log(`🗑️ Анкета ${expert.id} (${expert.name}) удалена после 14 дней в статусе "Истекшие"`);
     }
   }
 
   // Метод запуска планировщика
   async startExpirationChecker(): Promise<void> {
-    setInterval(() => this.checkAndRemoveExpiredExperts(), 60 * 1000); // каждую минуту
+    // Проверка истекших анкет (перевод в expired) - каждую минуту
+    setInterval(() => this.checkAndRemoveExpiredExperts(), 60 * 1000);
     await this.checkAndRemoveExpiredExperts(); // первая проверка сразу
-    console.log('⏰ Планировщик удаления истекших анкет запущен');
+    
+    // Удаление старых expired анкет (через 14 дней) - каждый час
+    setInterval(() => this.deleteOldExpiredExperts(), 60 * 60 * 1000);
+    await this.deleteOldExpiredExperts(); // первая проверка сразу
+    
+    console.log('⏰ Планировщик обработки истекших анкет запущен');
+    console.log('   - Проверка истекших: каждую минуту');
+    console.log('   - Удаление старых expired: каждый час');
   }
 
 
@@ -673,27 +705,29 @@ async extendPublication(expertId: string, days: number): Promise<Expert> {
 
   let baseDate: Date;
 
-  if (expert.expiresAt && expert.expiresAt > now) {
+  if (expert.status === 'expired') {
+    // Если анкета в статусе "Истекшие", продлеваем от текущей даты (0 дней + дни продления)
+    baseDate = new Date(now);
+    baseDate.setDate(baseDate.getDate() + days);
+    expert.expiredAt = null; // Очищаем дату истечения
+    expert.status = 'active'; // Возвращаем в активные
+  } else if (expert.expiresAt && expert.expiresAt > now) {
     // анкета ещё активна — продлеваем от expiresAt
     baseDate = new Date(expert.expiresAt);
+    baseDate.setDate(baseDate.getDate() + days);
   } else {
-    // анкета истекла или ещё не публиковалась
-    baseDate = now;
+    // анкета ещё не публиковалась или другая ситуация
+    baseDate = new Date(now);
+    baseDate.setDate(baseDate.getDate() + days);
   }
 
-  baseDate.setDate(baseDate.getDate() + days);
   expert.expiresAt = baseDate;
-
-  // если была истекшая — возвращаем в active
-  if (expert.status === 'expired') {
-    expert.status = 'active';
-  }
 
   const saved = await this.expertsRepository.save(expert);
   await this.saveData();
 
   console.log(
-    `⏳ Продление анкеты ${expertId} на ${days} дней. Новый expiresAt: ${baseDate.toISOString()}`
+    `⏳ Продление анкеты ${expertId} на ${days} дней. Новый expiresAt: ${baseDate.toISOString()}, статус: ${saved.status}`
   );
 
   return saved;

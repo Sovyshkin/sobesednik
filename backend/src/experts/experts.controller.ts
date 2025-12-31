@@ -368,6 +368,7 @@ async confirmReset(@Body() body: any) {
       paymentAmount: expert.paymentAmount,
       publishedAt: expert.publishedAt,
       expiresAt: expert.expiresAt,
+      expiredAt: expert.expiredAt, // Дата попадания в "Истекшие"
       rating: expert.rating,
       ratingCount: expert.ratingCount,
       ratings: ratings, // ← ДОБАВЛЯЕМ МАССИВ ОЦЕНОК
@@ -415,7 +416,8 @@ async findAllForAdmin() {
       updatedAt: expert.updatedAt,
       alwaysAvailable: expert.alwaysAvailable,
       publishedAt: expert.publishedAt,
-      expiresAt: expert.expiresAt,      
+      expiresAt: expert.expiresAt,
+      expiredAt: expert.expiredAt, // ← ДОБАВЛЯЕМ ДАТУ ПОПАДАНИЯ В "ИСТЕКШИЕ"
       reviews: reviews, // ← ДОБАВЛЯЕМ ОТЗЫВЫ
       reviewsCount: reviews.length // ← И количество отзывов для удобства
     };
@@ -524,6 +526,7 @@ async findAll() {
       paymentAmount: expert.paymentAmount,
       publishedAt: expert.publishedAt,
       expiresAt: expert.expiresAt,
+      expiredAt: expert.expiredAt, // Дата попадания в "Истекшие"
       reviews: reviews
     };
   }
@@ -751,6 +754,42 @@ async extendPublication(
   return {
     id: expert.id,
     expiresAt: expert.expiresAt,
+  };
+}
+
+// 🧪 ТЕСТОВЫЙ ENDPOINT: Установить expiresAt в прошлое для тестирования функционала "Истекшие"
+@Post('admin/:id/test-expire')
+async testExpire(@Param('id') id: string) {
+  const expert = await this.expertsService.findOne(id);
+  
+  // Устанавливаем expiresAt на 1 минуту назад для быстрого тестирования
+  const pastDate = new Date();
+  pastDate.setMinutes(pastDate.getMinutes() - 1);
+  expert.expiresAt = pastDate;
+  expert.status = 'active'; // Возвращаем в active чтобы планировщик мог перевести в expired
+  
+  const saved = await this.expertsService.update(id, {
+    expiresAt: pastDate,
+    status: 'active'
+  });
+  
+  console.log(`🧪 ТЕСТ: Установлен expiresAt в прошлое для анкеты ${id}`);
+  
+  // Запускаем проверку вручную
+  const expertsService = this.expertsService as any;
+  await expertsService.checkAndRemoveExpiredExperts();
+  
+  // Получаем обновленную анкету
+  const updatedExpert = await this.expertsService.findOne(id);
+  
+  return {
+    id: updatedExpert.id,
+    status: updatedExpert.status,
+    expiresAt: updatedExpert.expiresAt,
+    expiredAt: updatedExpert.expiredAt,
+    message: updatedExpert.status === 'expired' 
+      ? '✅ Анкета успешно переведена в статус "Истекшие"' 
+      : '⚠️ Анкета еще не переведена в expired (проверьте планировщик)'
   };
 }
 

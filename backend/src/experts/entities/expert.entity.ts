@@ -79,6 +79,9 @@ export class Expert {
 
   @Column({ type: 'datetime', nullable: true })
   expiresAt?: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  expiredAt?: Date; // Дата попадания в статус "Истекшие"
   
   @Column({ default: false })
   alwaysAvailable!: boolean;
